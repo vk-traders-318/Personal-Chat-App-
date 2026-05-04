@@ -1,24 +1,25 @@
 require("dotenv").config();
 
 const express = require("express");
-const app = express();
 const cors = require("cors");
+const connectDB = require("./db");
 
-require("./db");
+const app = express();
+
+connectDB();
 
 app.use(cors());
 app.use(express.json());
 
-const authRoutes = require("./routes/auth");
-const chatRoutes = require("./routes/chat");
-
-app.use("/api/auth", authRoutes);
-app.use("/api/chat", chatRoutes);
+app.use("/api/auth", require("./routes/auth"));
+app.use("/api/chat", require("./routes/chat"));
 
 app.get("/", function (req, res) {
-    res.send("Server Running");
+    res.send("API Running");
 });
 
-app.listen(process.env.PORT, function () {
-    console.log("Server started on port " + process.env.PORT);
+const PORT = process.env.PORT || 10000;
+
+app.listen(PORT, function () {
+    console.log("Server running on port " + PORT);
 });
