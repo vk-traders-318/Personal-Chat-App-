@@ -19,8 +19,8 @@ router.post("/signup", async function (req, res) {
             return res.json({ status: "error", msg: "Missing fields" });
         }
 
-        // user already exists check
         const existing = await User.findOne({ email });
+
         if (existing) {
             return res.json({ status: "error", msg: "Email already exists" });
         }
@@ -68,7 +68,6 @@ router.post("/verify-otp", async function (req, res) {
             return res.json({ status: "error", msg: "OTP expired" });
         }
 
-        // username unique check
         const exist = await User.findOne({
             $or: [{ email }, { username }]
         });
@@ -206,6 +205,66 @@ router.post("/reset-password", async function (req, res) {
 
 
 // =========================
+// 🔥 UPDATE USERNAME
+// =========================
+router.post("/update-username", async function (req, res) {
+    try {
+        const { email, username } = req.body;
+
+        if (!email || !username) {
+            return res.json({ status: "error", msg: "Missing fields" });
+        }
+
+        const exist = await User.findOne({ username });
+
+        if (exist) {
+            return res.json({ status: "error", msg: "Username already taken" });
+        }
+
+        await User.updateOne({ email }, { username });
+
+        res.json({ status: "ok", msg: "Username updated" });
+
+    } catch (err) {
+        console.log(err.message);
+        res.json({ status: "error", msg: "Update failed" });
+    }
+});
+
+
+// =========================
+// 🔥 UPDATE PASSWORD
+// =========================
+router.post("/update-password", async function (req, res) {
+    try {
+        const { email, oldPassword, newPassword } = req.body;
+
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return res.json({ status: "error", msg: "User not found" });
+        }
+
+        const match = await bcrypt.compare(oldPassword, user.password);
+
+        if (!match) {
+            return res.json({ status: "error", msg: "Wrong old password" });
+        }
+
+        const hash = await bcrypt.hash(newPassword, 10);
+
+        await User.updateOne({ email }, { password: hash });
+
+        res.json({ status: "ok", msg: "Password updated" });
+
+    } catch (err) {
+        console.log(err.message);
+        res.json({ status: "error", msg: "Update failed" });
+    }
+});
+
+
+// =========================
 // 🔥 GET USERS
 // =========================
 router.get("/users", async function (req, res) {
@@ -243,6 +302,5 @@ router.get("/search", async function (req, res) {
         res.json({ status: "error", msg: "Search failed" });
     }
 });
-
 
 module.exports = router;
