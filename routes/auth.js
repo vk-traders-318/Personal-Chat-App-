@@ -93,17 +93,26 @@ router.post("/verify-otp", async function (req, res) {
 
 
 // 🔥 Login
-router.post("/login", async (req, res) => {
+router.post("/login", async function (req, res) {
     try {
-        const { email, password } = req.body;
+        const { identifier, password } = req.body;
 
-        const user = await User.findOne({ email });
+        const user = await User.findOne({
+            $or: [
+                { email: identifier },
+                { username: identifier }
+            ]
+        });
 
-        if (!user) return res.json({ status: "error", msg: "User not found" });
+        if (!user) {
+            return res.json({ status: "error", msg: "User not found" });
+        }
 
         const match = await bcrypt.compare(password, user.password);
 
-        if (!match) return res.json({ status: "error", msg: "Wrong password" });
+        if (!match) {
+            return res.json({ status: "error", msg: "Wrong password" });
+        }
 
         res.json({
             status: "ok",
