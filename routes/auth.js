@@ -29,11 +29,15 @@ router.post("/signup", async function (req, res) {
             expiresAt: new Date(Date.now() + 5 * 60000)
         });
 
-        sendOTP(email, otp);
+        // 🔥 non-blocking mail
+        sendOTP(email, otp).catch(err => {
+            console.log("Mail failed:", err.message);
+        });
 
         res.json({ status: "ok", msg: "OTP sent" });
 
     } catch (err) {
+        console.log("Signup Error:", err.message);
         res.json({ status: "error", msg: "Signup failed" });
     }
 });
@@ -62,6 +66,7 @@ router.post("/verify-otp", async function (req, res) {
         res.json({ status: "ok", msg: "Account created" });
 
     } catch (err) {
+        console.log("Verify Error:", err.message);
         res.json({ status: "error", msg: "Verification failed" });
     }
 });
@@ -85,6 +90,7 @@ router.post("/login", async function (req, res) {
         res.json({ status: "ok", msg: "Login success" });
 
     } catch (err) {
+        console.log("Login Error:", err.message);
         res.json({ status: "error", msg: "Login failed" });
     }
 });
