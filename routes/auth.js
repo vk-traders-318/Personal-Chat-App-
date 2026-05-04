@@ -1,26 +1,28 @@
 const express = require("express");
 const router = express.Router();
+
 const User = require("../models/User");
 const OTP = require("../models/Otp");
+
 const bcrypt = require("bcryptjs");
 const { sendOTP } = require("../utils/mail");
 
 
-// 🔥 Signup (send OTP)
-router.post("/signup", async (req, res) => {
+// =========================
+// 🔥 SIGNUP (SEND OTP)
+// =========================
+router.post("/signup", async function (req, res) {
     try {
-        const { email, password, username } = req.body;
+        const { email, password } = req.body;
 
-        if (!email || !password || !username) {
+        if (!email || !password) {
             return res.json({ status: "error", msg: "Missing fields" });
         }
 
-        const exist = await User.findOne({
-            $or: [{ email }, { username }]
-        });
-
-        if (exist) {
-            return res.json({ status: "error", msg: "Email or Username exists" });
+        // user already exists check
+        const existing = await User.findOne({ email });
+        if (existing) {
+            return res.json({ status: "error", msg: "Email already exists" });
         }
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -29,7 +31,6 @@ router.post("/signup", async (req, res) => {
 
         await OTP.create({
             email,
-            username,
             password,
             otp,
             expiresAt: new Date(Date.now() + 5 * 60000)
@@ -40,12 +41,15 @@ router.post("/signup", async (req, res) => {
         res.json({ status: "ok", msg: "OTP sent" });
 
     } catch (err) {
+        console.log(err.message);
         res.json({ status: "error", msg: "Signup failed" });
     }
 });
 
 
-// 🔥 Verify OTP
+// =========================
+// 🔥 VERIFY OTP + CREATE USER
+// =========================
 router.post("/verify-otp", async function (req, res) {
     try {
         const { email, otp, username } = req.body;
@@ -64,12 +68,12 @@ router.post("/verify-otp", async function (req, res) {
             return res.json({ status: "error", msg: "OTP expired" });
         }
 
-        // 🔥 username unique check
-        const existingUser = await User.findOne({
+        // username unique check
+        const exist = await User.findOne({
             $or: [{ email }, { username }]
         });
 
-        if (existingUser) {
+        if (exist) {
             return res.json({ status: "error", msg: "Email or Username already exists" });
         }
 
@@ -86,16 +90,22 @@ router.post("/verify-otp", async function (req, res) {
         res.json({ status: "ok", msg: "Account created" });
 
     } catch (err) {
-        console.log("Verify Error:", err.message);
+        console.log(err.message);
         res.json({ status: "error", msg: "Verification failed" });
     }
 });
 
 
-// 🔥 Login
+// =========================
+// 🔥 LOGIN (EMAIL OR USERNAME)
+// =========================
 router.post("/login", async function (req, res) {
     try {
         const { identifier, password } = req.body;
+
+        if (!identifier || !password) {
+            return res.json({ status: "error", msg: "Missing fields" });
+        }
 
         const user = await User.findOne({
             $or: [
@@ -122,32 +132,117 @@ router.post("/login", async function (req, res) {
             }
         });
 
-    } catch {
+    } catch (err) {
+        console.log(err.message);
         res.json({ status: "error", msg: "Login failed" });
     }
 });
 
 
-// 🔥 Get Users
-router.get("/users", async (req, res) => {
-    const { email } = req.query;
+// =========================
+// 🔥 RESET PASSWORD - SEND OTP
+// =========================
+router.post("/reset-send-otp", async function (req, res) {
+    try {
+        const { email } = req.body;
 
-    const users = await User.find({ email: { $ne: email } })
-        .select("username email");
+        const user = await User.findOne({ email });
 
-    res.json({ status: "ok", users });
+        if (!user) {
+            return res.json({ status: "error", msg: "User not found" });
+        }
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+        await OTP.deleteMany({ email });
+
+        await OTP.create({
+            email,
+            otp,
+            expiresAt: new Date(Date.now() + 5 * 60000)
+        });
+
+        await sendOTP(email, otp);
+
+        res.json({ status: "ok", msg: "OTP sent" });
+
+    } catch (err) {
+        console.log(err.message);
+        res.json({ status: "error", msg: "Failed" });
+    }
 });
 
 
-// 🔥 Search Users
-router.get("/search", async (req, res) => {
-    const { query } = req.query;
+// =========================
+// 🔥 RESET PASSWORD - VERIFY + UPDATE
+// =========================
+router.post("/reset-password", async function (req, res) {
+    try {
+        const { email, otp, newPassword } = req.body;
 
-    const users = await User.find({
-        username: { $regex: query, $options: "i" }
-    }).select("username email");
+        const record = await OTP.findOne({ email, otp });
 
-    res.json({ status: "ok", users });
+        if (!record) {
+            return res.json({ status: "error", msg: "Invalid OTP" });
+        }
+
+        if (record.expiresAt < new Date()) {
+            return res.json({ status: "error", msg: "OTP expired" });
+        }
+
+        const hash = await bcrypt.hash(newPassword, 10);
+
+        await User.updateOne({ email }, { password: hash });
+
+        await OTP.deleteMany({ email });
+
+        res.json({ status: "ok", msg: "Password updated" });
+
+    } catch (err) {
+        console.log(err.message);
+        res.json({ status: "error", msg: "Failed" });
+    }
 });
+
+
+// =========================
+// 🔥 GET USERS
+// =========================
+router.get("/users", async function (req, res) {
+    try {
+        const { email } = req.query;
+
+        const users = await User.find({ email: { $ne: email } })
+            .select("username email");
+
+        res.json({ status: "ok", users });
+
+    } catch {
+        res.json({ status: "error", msg: "Failed" });
+    }
+});
+
+
+// =========================
+// 🔥 SEARCH USERS
+// =========================
+router.get("/search", async function (req, res) {
+    try {
+        const { query } = req.query;
+
+        const users = await User.find({
+            $or: [
+                { username: { $regex: query, $options: "i" } },
+                { email: { $regex: query, $options: "i" } }
+            ]
+        }).select("username email");
+
+        res.json({ status: "ok", users });
+
+    } catch {
+        res.json({ status: "error", msg: "Search failed" });
+    }
+});
+
 
 module.exports = router;
