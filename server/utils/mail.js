@@ -8,15 +8,18 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-function sendOTP(email, otp) {
-    const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: "Your OTP Code",
-        text: "Your OTP is: " + otp
-    };
-
-    return transporter.sendMail(mailOptions);
+async function sendOTP(email, otp) {
+    try {
+        await transporter.sendMail({
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: "Your OTP Code",
+            text: "Your OTP is: " + otp
+        });
+    } catch (err) {
+        console.log("Mail Error:", err);
+        throw err;
+    }
 }
 
 module.exports = { sendOTP };
