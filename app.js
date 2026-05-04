@@ -1,25 +1,25 @@
 require("dotenv").config();
 
 const express = require("express");
+const mongoose = require("mongoose");
 const cors = require("cors");
-const connectDB = require("./db");
 
 const app = express();
-
-connectDB();
 
 app.use(cors());
 app.use(express.json());
 
-app.use("/api/auth", require("./routes/auth"));
-app.use("/api/chat", require("./routes/chat"));
+mongoose.connect(process.env.MONGO_URI)
+    .then(() => console.log("DB connected"))
+    .catch(err => console.log(err));
 
-app.get("/", function (req, res) {
-    res.send("API Running");
+app.use("/auth", require("./routes/auth"));
+app.use("/chat", require("./routes/chat"));
+
+app.get("/", (req, res) => {
+    res.send("API running");
 });
 
-const PORT = process.env.PORT || 10000;
-
-app.listen(PORT, function () {
-    console.log("Server running on port " + PORT);
+app.listen(process.env.PORT || 10000, () => {
+    console.log("Server started");
 });
