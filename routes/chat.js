@@ -7,6 +7,10 @@ router.post("/send-message", async function (req, res) {
     try {
         const { sender, receiver, text, media } = req.body;
 
+        if (!sender || !receiver) {
+            return res.json({ status: "error", msg: "Missing fields" });
+        }
+
         const msg = await Message.create({
             sender,
             receiver,
