@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
-const OTP = require("../models/OTP");
+const OTP = require("../models/Otp");
 const bcrypt = require("bcryptjs");
 const { sendOTP } = require("../utils/mail");
 
@@ -29,20 +29,16 @@ router.post("/signup", async function (req, res) {
             expiresAt: new Date(Date.now() + 5 * 60000)
         });
 
-        // ✅ FIX: wait for mail
-        try {
-            await sendOTP(email, otp);
-            return res.json({ status: "ok", msg: "OTP sent" });
-        } catch (err) {
-            return res.json({ status: "error", msg: "OTP send failed" });
-        }
+        // 🔥 OTP send (await important)
+        await sendOTP(email, otp);
+
+        res.json({ status: "ok", msg: "OTP sent" });
 
     } catch (err) {
         console.log("Signup Error:", err.message);
         res.json({ status: "error", msg: "Signup failed" });
     }
 });
-
 
 // Verify OTP
 router.post("/verify-otp", async function (req, res) {
@@ -59,12 +55,6 @@ router.post("/verify-otp", async function (req, res) {
             return res.json({ status: "error", msg: "OTP expired" });
         }
 
-        // ✅ FIX: duplicate check again
-        const existing = await User.findOne({ email });
-        if (existing) {
-            return res.json({ status: "error", msg: "User already exists" });
-        }
-
         const hash = await bcrypt.hash(password, 10);
 
         await User.create({ email, password: hash });
@@ -79,15 +69,10 @@ router.post("/verify-otp", async function (req, res) {
     }
 });
 
-
 // Login
 router.post("/login", async function (req, res) {
     try {
         const { email, password } = req.body;
-
-        if (!email || !password) {
-            return res.json({ status: "error", msg: "Missing fields" });
-        }
 
         const user = await User.findOne({ email });
         if (!user) {
