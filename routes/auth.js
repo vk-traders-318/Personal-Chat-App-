@@ -46,9 +46,13 @@ router.post("/signup", async (req, res) => {
 
 
 // 🔥 Verify OTP
-router.post("/verify-otp", async (req, res) => {
+router.post("/verify-otp", async function (req, res) {
     try {
-        const { email, otp } = req.body;
+        const { email, otp, username } = req.body;
+
+        if (!email || !otp || !username) {
+            return res.json({ status: "error", msg: "Missing fields" });
+        }
 
         const record = await OTP.findOne({ email, otp });
 
@@ -60,11 +64,20 @@ router.post("/verify-otp", async (req, res) => {
             return res.json({ status: "error", msg: "OTP expired" });
         }
 
+        // 🔥 username unique check
+        const existingUser = await User.findOne({
+            $or: [{ email }, { username }]
+        });
+
+        if (existingUser) {
+            return res.json({ status: "error", msg: "Email or Username already exists" });
+        }
+
         const hash = await bcrypt.hash(record.password, 10);
 
         await User.create({
             email: record.email,
-            username: record.username,
+            username: username,
             password: hash
         });
 
@@ -73,6 +86,7 @@ router.post("/verify-otp", async (req, res) => {
         res.json({ status: "ok", msg: "Account created" });
 
     } catch (err) {
+        console.log("Verify Error:", err.message);
         res.json({ status: "error", msg: "Verification failed" });
     }
 });
