@@ -2,52 +2,29 @@ const express = require("express");
 const router = express.Router();
 const Message = require("../models/Message");
 
-// Send message
-router.post("/send-message", async function (req, res) {
-    try {
-        const { sender, receiver, text, media } = req.body;
 
-        if (!sender || !receiver) {
-            return res.json({ status: "error", msg: "Missing fields" });
-        }
+// 🔥 Send Message
+router.post("/send", async (req, res) => {
+    const { sender, receiver, message } = req.body;
 
-        const msg = await Message.create({
-            sender,
-            receiver,
-            text,
-            media
-        });
+    await Message.create({ sender, receiver, message });
 
-        res.json({ status: "ok", message: msg });
-
-    } catch (err) {
-        res.json({ status: "error", msg: "Send failed" });
-    }
+    res.json({ status: "ok" });
 });
 
-// Get messages
-router.get("/get-messages", async function (req, res) {
-    try {
-        const { sender, receiver, lastId } = req.query;
 
-        let query = {
-            $or: [
-                { sender, receiver },
-                { sender: receiver, receiver: sender }
-            ]
-        };
+// 🔥 Get Messages
+router.get("/messages", async (req, res) => {
+    const { sender, receiver } = req.query;
 
-        if (lastId) {
-            query._id = { $gt: lastId };
-        }
+    const msgs = await Message.find({
+        $or: [
+            { sender, receiver },
+            { sender: receiver, receiver: sender }
+        ]
+    }).sort({ created_at: 1 });
 
-        const messages = await Message.find(query).sort({ created_at: 1 });
-
-        res.json({ status: "ok", messages });
-
-    } catch (err) {
-        res.json({ status: "error", msg: "Fetch failed" });
-    }
+    res.json({ status: "ok", messages: msgs });
 });
 
 module.exports = router;
