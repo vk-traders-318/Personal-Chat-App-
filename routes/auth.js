@@ -29,7 +29,7 @@ router.post("/signup", async function (req, res) {
             expiresAt: new Date(Date.now() + 5 * 60000)
         });
 
-        await sendOTP(email, otp);
+        sendOTP(email, otp);
 
         res.json({ status: "ok", msg: "OTP sent" });
 
